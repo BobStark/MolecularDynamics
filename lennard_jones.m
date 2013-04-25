@@ -7,19 +7,22 @@ clear all
 filename = 'Input2D-2.txt'; %name of the data file which should be loaded
 sigma = 1;              %particle diameter
 epsilon = 1;            %material parameter
-time = 20;              %total time in seconds
-dt = 0.005;             %time step in seconds
+time = 10;              %total time in nanoseconds
+dt = .001;             %time step in nanoseconds
 method = 'Verlet';      %integration method
-borders = [-5 15 -5 15]; %set [x0 x1 y0 y1] to turn borders on (particles bounce), 0 is off
+borders = 0; %set [x0 x1 y0 y1] to turn borders on (particles bounce), 0 is off
 output = '';            %name of the output file. Set '' for no output
 movie = 'output.avi';   %movie output name. Set '' for no movie output
 fps = 10;               %FPS for movie
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-makefile(filename)
+makefile(filename)      %Create file of initial positions and velocities
+
 
 timesteps = time/dt+1; %number of timesteps to be calculated
 [x y v u m variables N] = readfile( filename, timesteps ); %load the data
+strainRateDisp = .05*(max(x(:,1))-min(x(:,1)))*dt;    %Incremental displacement
+                                                     %based on strain rate.
 
 V = zeros(N,timesteps); %allocate potential energy array
 T = zeros(N,timesteps); %allocate kinetic energy array
@@ -56,31 +59,73 @@ for t=1:time/dt+1
         end
         
         %Compute the position and velocity using Euler or Verlet
-        if (strcmp('Euler',method) || t==1) %first timestap is always Euler   
-            % Forward Euler x
-            if(i==1||i==2||i==3||i==4||i==33||i==34||i==35||i==36)
-                x(i,t+1) = x(i,t);              %Fix left and right end of the beam
-            else
-                x(i,t+1) = x(i,t) + v(i,t)*dt;
-            end
-            v(i,t+1) = v(i,t) + sum(f_x)/m(i)*dt;
+        if (strcmp('Euler',method) || t==1) %first timestap is always Euler
+            %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+            %%%%%%%! Forward Euler Method !%%%%%%%
+            %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
             
-            % Forward Euler y
-            if(i==1||i==2||i==3||i==4||i==33||i==34||i==35||i==36)
-                y(i,t+1) = y(i,t);
+            %%%% X-Direction
+            if(i==1||i==2||i==3||i==4||i==5||i==7)
+                % Keep the left end of the beam fixed, with velocity = 0.
+                x(i,t+1) = x(i,t);
+                v(i,t+1) = 0;
+            elseif (i==30||i==32||i==33||i==34||i==35||i==36)
+                % Displace the right end of the beam based on strain rate.
+                x(i,t+1) = x(i,t)+strainRateDisp;    
             else
-                y(i,t+1) = y(i,t) + u(i,t)*dt;
+                % Calculate the new x-positions and velocities of the
+                % central particles.
+                x(i,t+1) = x(i,t) + v(i,t)*dt;
+                v(i,t+1) = v(i,t) + sum(f_x)/m(i)*dt;
             end
-            u(i,t+1) = u(i,t) + sum(f_y)/m(i)*dt;
+            
+            %%%% Y-Direction
+            if(i==1||i==2||i==3||i==4||i==5||i==7||i==30||i==32||i==33||i==34||i==35||i==36)
+                % Keep left- and right-hand y-positions constant/fixed;
+                % also keep the y-velocities 0.
+                y(i,t+1) = y(i,t);
+                u(i,t+1) = 0;
+            else
+                % Calculate new y-position and velocity of the
+                % central particles.
+                y(i,t+1) = y(i,t) + u(i,t)*dt;
+                u(i,t+1) = u(i,t) + sum(f_y)/m(i)*dt;
+            end
             
         elseif(strcmp('Verlet',method))
-            %Verlet algorithm x
-            x(i,t+1) = -x(i,t-1) + 2*x(i,t) + sum(f_x)/m(i)*dt^2;
-            v(i,t) = (x(i,t-1) - x(i,t+1))/(2*dt);
-           
-            %Verlet algorithm y
-            y(i,t+1) = -y(i,t-1) + 2*y(i,t) + sum(f_y)/m(i)*dt^2;
-            u(i,t) = (y(i,t-1) - y(i,t+1))/(2*dt);
+            %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+            %%%%%%! Verlet algorithm !%%%%%%%%
+            %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+            
+            
+            %%%% X-Direction
+            if(i==1||i==2||i==3||i==4||i==5||i==7)
+                % Keep left end fixed, velocity at 0.
+                x(i,t+1) = x(i,t);
+                v(i,t) = 0;
+            elseif (i==30||i==32||i==33||i==34||i==35||i==36)
+                % Displace right end of beam based on strain rate,
+                % set x-velocity =0.
+                x(i,t+1) = x(i,t)+strainRateDisp;
+                v(i,t) =0;
+            else
+                % Calculate new x-position and velocity.
+                x(i,t+1) = -x(i,t-1) + 2*x(i,t) + sum(f_x)/m(i)*dt^2;
+                v(i,t) = (x(i,t-1) - x(i,t+1))/(2*dt);
+            end
+            
+            %%%% Y-Direction
+            if(i==1||i==2||i==3||i==4||i==5||i==7||i==30||i==32||i==33||i==34||i==35||i==36)
+                % Keep Y-position of left and right end fixed, and keep
+                % y-velocity equal to 0.
+                y(i,t+1) = y(i,t);
+                u(i,t) = 0;
+            else
+                % Calculate the new y-position and y-velocity at central
+                % particles.
+                y(i,t+1) = -y(i,t-1) + 2*y(i,t) + sum(f_y)/m(i)*dt^2;
+                u(i,t) = (y(i,t-1) - y(i,t+1))/(2*dt);
+            end
         else
             disp('No valid integration method given!');
         end
@@ -125,6 +170,7 @@ plot(0:dt:time,V_sum,'k')
 title('The total energy of the system','FontSize',14);
 xlabel('Time [s]','FontSize',12);
 ylabel('Energy [J]','FontSize',12);
+legend('Total Energy','Kinetic Energy','Potential Energy')
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 %%% Create file %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -139,11 +185,11 @@ if borders ~= 0 %if borders are given set the axis equal to the borders
     ax_x = borders(1:2);
     ax_y = borders(3:4);
 else %if not set the axis automatically to the highest traveled distance of the particles
-    ax_x = [min(min(x))-0.5*sigma max(max(x))+0.5*sigma]; %x axis
+    ax_x = [-5 15]; %x axis
     if variables == 3
         ax_y = [-1 1]; %y axis for 1D
     else
-        ax_y = [min(min(y))-0.5*sigma max(max(y))+0.5*sigma]; %y axis for 2D
+        ax_y = [-5 15]; %y axis for 2D
     end
 end
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
