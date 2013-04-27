@@ -21,8 +21,9 @@ makefile(filename)      %Create file of initial positions and velocities
 
 timesteps = time/dt+1; %number of timesteps to be calculated
 [x y v u m variables N] = readfile( filename, timesteps ); %load the data
-strainRateDisp = .05*(max(x(:,1))-min(x(:,1)))*dt;    %Incremental displacement
-                                                     %based on strain rate.
+
+strainRateVel  = .05*(max(x(:,1))-min(x(:,1)))		   %0.05 is the strain rate at this time scale
+strainRateDisp = .05*(max(x(:,1))-min(x(:,1)))*dt;    %Incremental displacement based on strain rate
 
 V = zeros(N,timesteps); %allocate potential energy array
 T = zeros(N,timesteps); %allocate kinetic energy array
@@ -59,7 +60,7 @@ for t=1:time/dt+1
         end
         
         %Compute the position and velocity using Euler or Verlet
-        if (strcmp('Euler',method) || t==1) %first timestap is always Euler
+        if (strcmp('Euler',method) || t==1) %first timestep is always Euler
             %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
             %%%%%%%! Forward Euler Method !%%%%%%%
             %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -70,15 +71,18 @@ for t=1:time/dt+1
                 x(i,t+1) = x(i,t);
                 v(i,t+1) = 0;
             elseif (i==30||i==32||i==33||i==34||i==35||i==36)
-                % Displace the right end of the beam based on strain rate.
-                x(i,t+1) = x(i,t)+strainRateDisp;    
+                % Give right end of beam constant velocity.
+                v(i,t+1) = strainRateVel;   
             else
-                % Calculate the new x-positions and velocities of the
-                % central particles.
-                x(i,t+1) = x(i,t) + v(i,t)*dt;
+                % Calculate the new velocities of the central particles
                 v(i,t+1) = v(i,t) + sum(f_x)/m(i)*dt;
             end
-            
+			
+			if(i~=1||i~=2||i~=3||i~=4||i~=5||i~=7)
+				% Calculate the new positions of non-left end particles.
+				x(i,t+1) = x(i,t) + v(i,t)*dt;
+			end
+			
             %%%% Y-Direction
             if(i==1||i==2||i==3||i==4||i==5||i==7||i==30||i==32||i==33||i==34||i==35||i==36)
                 % Keep left- and right-hand y-positions constant/fixed;
@@ -91,7 +95,7 @@ for t=1:time/dt+1
                 y(i,t+1) = y(i,t) + u(i,t)*dt;
                 u(i,t+1) = u(i,t) + sum(f_y)/m(i)*dt;
             end
-            
+			
         elseif(strcmp('Verlet',method))
             %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
             %%%%%%! Verlet algorithm !%%%%%%%%
@@ -104,10 +108,9 @@ for t=1:time/dt+1
                 x(i,t+1) = x(i,t);
                 v(i,t) = 0;
             elseif (i==30||i==32||i==33||i==34||i==35||i==36)
-                % Displace right end of beam based on strain rate,
-                % set x-velocity =0.
-                x(i,t+1) = x(i,t)+strainRateDisp;
-                v(i,t) =0;
+                % Give right end of beam velocity from strain rate, displace it.
+                v(i,t) = strainRateVel;
+				x(i,t+1) = x(i,t) + strainRateDisp;
             else
                 % Calculate new x-position and velocity.
                 x(i,t+1) = -x(i,t-1) + 2*x(i,t) + sum(f_x)/m(i)*dt^2;
@@ -126,6 +129,9 @@ for t=1:time/dt+1
                 y(i,t+1) = -y(i,t-1) + 2*y(i,t) + sum(f_y)/m(i)*dt^2;
                 u(i,t) = (y(i,t-1) - y(i,t+1))/(2*dt);
             end
+			
+			u(i,t) = (y(i,t-1) - y(i,t+1))/(2*dt);
+			
         else
             disp('No valid integration method given!');
         end
