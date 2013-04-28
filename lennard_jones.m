@@ -5,7 +5,7 @@ clear all
 
 %%% DATA TO CHANGE %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 filename = 'Input2D-2.txt'; %name of the data file which should be loaded
-sigma = 1;              %particle diameter
+sigma = 1;              %particle diameter in nanometers
 epsilon = 1;            %material parameter
 time = 10;              %total time in nanoseconds
 dt = .001;             %time step in nanoseconds
@@ -16,20 +16,21 @@ movie = 'output.avi';   %movie output name. Set '' for no movie output
 fps = 10;               %FPS for movie
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
+%%% VARIABLES AND CONSTANTS %%%%%%%%%%%%%%%%%%%%%%%
+
 makefile(filename)      %Create file of initial positions and velocities
+timesteps = time/dt+1; 	%number of timesteps to be calculated
+[x y v u m variables N] = readfile( filename, timesteps ); 	%load the data
 
+strainRate = 0.1;    %in (.1ns)^-1
+strainRateVel  = strainRate*(max(x(:,1))-min(x(:,1)));		   	%0.1 is the strain rate at this time scale
+strainRateDisp = strainRateVel*dt;                      %Incremental displacement based on strain rate
 
-timesteps = time/dt+1; %number of timesteps to be calculated
-[x y v u m variables N] = readfile( filename, timesteps ); %load the data
-
-strainRateVel  = .075*(max(x(:,1))-min(x(:,1)));		   %0.05 is the strain rate at this time scale
-strainRateDisp = .075*(max(x(:,1))-min(x(:,1)))*dt;    %Incremental displacement based on strain rate
-
-V = zeros(N,timesteps); %allocate potential energy array
-T = zeros(N,timesteps); %allocate kinetic energy array
-f_x = zeros(1,N);       %allocate force matrix x-direction
-f_y = zeros(1,N);       %allocate force matrix y-direction
-V_j = zeros(1,N);       %allocate LennardJones potential matrix
+V = zeros(N,timesteps);     %allocate potential energy array
+T = zeros(N,timesteps);     %allocate kinetic energy array
+f_x = zeros(1,N);           %allocate force matrix x-direction
+f_y = zeros(1,N);           %allocate force matrix y-direction
+V_j = zeros(1,N);           %allocate Lennard-Jones potential matrix
 
 %%% Calcualtion part %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 for t=1:time/dt+1
@@ -158,7 +159,7 @@ for t=1:time/dt+1
         %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
         
         
-        %Energy calculations
+        %Energy and temperature calculations
         V(i,t) = sum(V_j); %Potential energy: sum of influence of other particles
         T(i,t) = 1/2*m(i)*(v(i,t)^2+u(i,t)^2); %Kinetic energy: 1/2mv^2
     end
@@ -167,6 +168,7 @@ end
 %%% Calculate and plot energy %%%%%%%%%%%%%%%%%%%%%%%%
 V_sum = sum(V)/2; %sum the potential energy of all particles times a half since matrix is mirrored
 T_sum = sum(T) ;%1/2.*m'.*(sum(u.^2)+sum(v.^2)); %sum from all particles: 0.5*m*v^2
+
 
 fig=figure(1);
 hold on
@@ -177,6 +179,7 @@ title('The total energy of the system','FontSize',14);
 xlabel('Time [s]','FontSize',12);
 ylabel('Energy [J]','FontSize',12);
 legend('Total Energy','Kinetic Energy','Potential Energy')
+
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 %%% Create file %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -191,7 +194,7 @@ if borders ~= 0 %if borders are given set the axis equal to the borders
     ax_x = borders(1:2);
     ax_y = borders(3:4);
 else %if not set the axis automatically to the highest traveled distance of the particles
-    ax_x = [-5 15]; %x axis
+    ax_x = [-5 20]; %x axis
     if variables == 3
         ax_y = [-1 1]; %y axis for 1D
     else
@@ -226,7 +229,7 @@ if ~(strcmp('',movie))
         
         %add the text with the energy
         text(ax_x(1),ax_y(2),['   V = ', num2str(V_sum(k)), '      T = ' ,num2str(T_sum(k))]);
-        text((ax_x(1)+ax_x(2))/2,ax_y(2),['Totaal = ',num2str(T_sum(k)+V_sum(k))]);
+        text((ax_x(1)+ax_x(2))/2,ax_y(2),['Total = ',num2str(T_sum(k)+V_sum(k))]);
 
         set(gca,'DataAspectRatio',[1 1 1]); %set aspect ratio x:y to 1:1
         axis([ax_x ax_y]); %set the axis
