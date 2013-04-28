@@ -22,8 +22,8 @@ makefile(filename)      %Create file of initial positions and velocities
 timesteps = time/dt+1; %number of timesteps to be calculated
 [x y v u m variables N] = readfile( filename, timesteps ); %load the data
 
-strainRateVel  = .05*(max(x(:,1))-min(x(:,1)))		   %0.05 is the strain rate at this time scale
-strainRateDisp = .05*(max(x(:,1))-min(x(:,1)))*dt;    %Incremental displacement based on strain rate
+strainRateVel  = .075*(max(x(:,1))-min(x(:,1)));		   %0.05 is the strain rate at this time scale
+strainRateDisp = .075*(max(x(:,1))-min(x(:,1)))*dt;    %Incremental displacement based on strain rate
 
 V = zeros(N,timesteps); %allocate potential energy array
 T = zeros(N,timesteps); %allocate kinetic energy array
